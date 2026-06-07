@@ -18,13 +18,16 @@ const state = {
   og: 1.065,
   fg: 1.012,
   currentGravity: 1.065,
-  temperature: 68.0,
+  temperature: 20.0,
   battery: 4.1,
   fermentationStartedAt: null,
   lastSentAt: null,
   lastResponse: null,
   totalReadingsSent: 0,
 };
+
+function celsiusToFahrenheit(c) { return Math.round((c * 9/5 + 32) * 10) / 10; }
+function fahrenheitToCelsius(f) { return Math.round((f - 32) * 5/9 * 10) / 10; }
 
 function computeGravity(og, fg, elapsedMs) {
   const multiplier = parseFloat(process.env.TIME_MULTIPLIER || '100');
@@ -95,7 +98,7 @@ setInterval(async () => {
 }, 1000);
 
 app.get('/api/state', (_req, res) => {
-  res.json(state);
+  res.json({ ...state, temperatureF: celsiusToFahrenheit(state.temperature) });
 });
 
 app.post('/api/start', (_req, res) => {
@@ -119,7 +122,7 @@ app.post('/api/config', (req, res) => {
   if (intervalSeconds !== undefined) state.intervalSeconds = Number(intervalSeconds);
   if (og !== undefined) state.og = Number(og);
   if (fg !== undefined) state.fg = Number(fg);
-  if (temperature !== undefined) state.temperature = Number(temperature);
+  if (temperature !== undefined) state.temperature = fahrenheitToCelsius(Number(temperature));
   res.json({ ok: true });
 });
 

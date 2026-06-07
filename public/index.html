@@ -559,7 +559,7 @@
       document.getElementById('progress-pct').textContent = `${pct}%`;
     }
 
-    document.getElementById('t-temp').textContent = state.temperature ? `${state.temperature.toFixed(1)} °F` : '—';
+    document.getElementById('t-temp').textContent = state.temperatureF ? `${state.temperatureF.toFixed(1)} °F` : '—';
     document.getElementById('t-battery').textContent = state.battery ? `${state.battery.toFixed(2)} V` : '—';
     document.getElementById('t-sent').textContent = state.totalReadingsSent ?? 0;
     document.getElementById('t-last-sent').textContent = timeAgo(state.lastSentAt);
@@ -583,7 +583,7 @@
         const statusText = state.lastResponse
           ? `status=${state.lastResponse.status ?? 'ERR'}`
           : 'status=?';
-        addLog(`Reading sent: gravity=${g ? g.toFixed(4) : '?'} ${statusText}`);
+        addLog(`Reading sent: gravity=${g ? g.toFixed(4) : '?'} temp=${state.temperature?.toFixed(1)}°C (sent as °C) ${statusText}`);
       }
       prevSent = state.totalReadingsSent;
     }
@@ -596,7 +596,7 @@
     document.getElementById('cfg-intervalSeconds').value = state.intervalSeconds;
     document.getElementById('cfg-og').value = state.og;
     document.getElementById('cfg-fg').value = state.fg;
-    document.getElementById('cfg-temperature').value = state.temperature;
+    document.getElementById('cfg-temperature').value = state.temperatureF;
   }
 
   async function applyConfig() {
@@ -627,7 +627,7 @@
   async function sendNow() {
     const res = await fetch('/api/send-now', { method: 'POST' });
     const data = await res.json();
-    addLog(`Manual send: gravity=${data.payload?.gravity ?? '?'}`);
+    addLog(`Manual send: gravity=${data.payload?.gravity ?? '?'} temp=${data.payload?.temperature ?? '?'}°C (sent as °C)`);
     fetchState();
   }
 
