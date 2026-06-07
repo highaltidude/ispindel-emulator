@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iSpindel Emulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #1a1c1e;
+      --panel: #22262b;
+      --border: #333840;
+      --amber: #e8820c;
+      --amber-dim: #a85c08;
+      --amber-hover: #f5920f;
+      --text: #c8cdd4;
+      --text-dim: #6b737d;
+      --green: #3ddc84;
+      --red: #e84545;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.08) 2px,
+        rgba(0, 0, 0, 0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 24px;
+      background: var(--panel);
+      border-bottom: 2px solid var(--amber);
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--amber);
+    }
+
+    .led {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 6px var(--red);
+      flex-shrink: 0;
+    }
+
+    .led.running {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: blink 1.2s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .header-status {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 280px 1fr 320px;
+      gap: 0;
+      height: calc(100vh - 53px);
+      overflow: hidden;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: auto;
+      }
+    }
+
+    .panel {
+      border-right: 1px solid var(--border);
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .panel:last-child { border-right: none; }
+
+    .panel-title {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--amber);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    input[type="text"],
+    input[type="number"] {
+      background: #13151a;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 8px 10px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus {
+      border-color: var(--amber);
+    }
+
+    .btn {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 10px 16px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      font-weight: 600;
+    }
+
+    .btn-primary {
+      background: var(--amber);
+      color: #0d0e10;
+    }
+
+    .btn-primary:hover { background: var(--amber-hover); }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--amber);
+      border: 1px solid var(--amber);
+    }
+
+    .btn-outline:hover {
+      background: rgba(232, 130, 12, 0.1);
+    }
+
+    .btn-start {
+      width: 100%;
+      padding: 16px;
+      font-size: 15px;
+      letter-spacing: 0.16em;
+      background: #1e3a25;
+      color: var(--green);
+      border: 2px solid var(--green);
+    }
+
+    .btn-start:hover { background: #243d2b; }
+
+    .btn-stop {
+      width: 100%;
+      padding: 16px;
+      font-size: 15px;
+      letter-spacing: 0.16em;
+      background: #3a1e1e;
+      color: var(--red);
+      border: 2px solid var(--red);
+    }
+
+    .btn-stop:hover { background: #3d2424; }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .telem-cell {
+      background: #13151a;
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+    }
+
+    .telem-label {
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+
+    .telem-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--amber);
+      line-height: 1;
+    }
+
+    .telem-value.small { font-size: 15px; }
+
+    .telem-cell.wide { grid-column: 1 / -1; }
+
+    .gravity-big {
+      background: #13151a;
+      border: 1px solid var(--amber);
+      padding: 16px 20px;
+      text-align: center;
+    }
+
+    .gravity-big .telem-label { margin-bottom: 6px; }
+
+    .gravity-big .telem-value {
+      font-size: 36px;
+      letter-spacing: 0.04em;
+    }
+
+    .progress-wrap {
+      background: #13151a;
+      border: 1px solid var(--border);
+      padding: 12px;
+    }
+
+    .progress-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .progress-track {
+      background: #0d0e10;
+      height: 10px;
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--amber);
+      transition: width 0.8s ease;
+      min-width: 2px;
+    }
+
+    .progress-pct {
+      text-align: right;
+      font-size: 10px;
+      color: var(--amber);
+      margin-top: 4px;
+    }
+
+    .log-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      height: 100%;
+    }
+
+    .response-block {
+      background: #0d0e10;
+      border: 1px solid var(--border);
+      padding: 10px;
+      font-size: 11px;
+      min-height: 80px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.6;
+    }
+
+    .response-block.ok { color: var(--green); border-color: #1e3a25; }
+    .response-block.err { color: var(--red); border-color: #3a1e1e; }
+    .response-block.idle { color: var(--text-dim); }
+
+    .log-entries {
+      flex: 1;
+      overflow-y: auto;
+      background: #0d0e10;
+      border: 1px solid var(--border);
+      padding: 8px;
+      font-size: 10px;
+      line-height: 1.8;
+      min-height: 200px;
+    }
+
+    .log-entry {
+      color: var(--text-dim);
+      border-bottom: 1px solid #1a1c1e;
+      padding: 2px 0;
+    }
+
+    .log-entry .ts { color: var(--amber-dim); }
+
+    .override-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .override-row input { flex: 1; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #13151a; }
+    ::-webkit-scrollbar-thumb { background: var(--border); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--amber-dim); }
+
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 4px 0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="led" id="led"></div>
+  <h1>iSpindel Emulator</h1>
+  <span class="header-status" id="header-status">STOPPED</span>
+</header>
+
+<main>
+  <!-- LEFT: Config -->
+  <div class="panel">
+    <div class="panel-title">Configuration</div>
+
+    <label>
+      Target FermentOS URL
+      <input type="text" id="cfg-targetUrl" placeholder="http://host.docker.internal:8080" />
+    </label>
+
+    <label>
+      Device Name
+      <input type="text" id="cfg-deviceName" placeholder="FermentOS-Test" />
+    </label>
+
+    <label>
+      Send Interval (seconds)
+      <input type="number" id="cfg-intervalSeconds" min="5" step="1" />
+    </label>
+
+    <label>
+      OG — Original Gravity
+      <input type="number" id="cfg-og" step="0.001" min="1.000" max="1.200" />
+    </label>
+
+    <label>
+      FG — Final Gravity Target
+      <input type="number" id="cfg-fg" step="0.001" min="1.000" max="1.200" />
+    </label>
+
+    <label>
+      Temperature (°F)
+      <input type="number" id="cfg-temperature" step="0.1" />
+    </label>
+
+    <button class="btn btn-primary" onclick="applyConfig()">Apply Config</button>
+  </div>
+
+  <!-- CENTER: Controls + Telemetry -->
+  <div class="panel">
+    <div class="panel-title">Controls</div>
+
+    <button class="btn btn-start" id="toggle-btn" onclick="toggleRunning()">▶ START</button>
+
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="sendNow()">Send Now</button>
+      <button class="btn btn-outline" onclick="resetToOg()">Reset to OG</button>
+    </div>
+
+    <hr class="section-divider" />
+
+    <div class="panel-title">Live Telemetry</div>
+
+    <div class="gravity-big">
+      <div class="telem-label">Current Gravity</div>
+      <div class="telem-value" id="t-gravity">—</div>
+    </div>
+
+    <div class="telemetry-grid">
+      <div class="telem-cell">
+        <div class="telem-label">Tilt Angle</div>
+        <div class="telem-value small" id="t-angle">—</div>
+      </div>
+      <div class="telem-cell">
+        <div class="telem-label">Temperature</div>
+        <div class="telem-value small" id="t-temp">—</div>
+      </div>
+      <div class="telem-cell">
+        <div class="telem-label">Battery</div>
+        <div class="telem-value small" id="t-battery">—</div>
+      </div>
+      <div class="telem-cell">
+        <div class="telem-label">Readings Sent</div>
+        <div class="telem-value small" id="t-sent">0</div>
+      </div>
+      <div class="telem-cell wide">
+        <div class="telem-label">Last Sent</div>
+        <div class="telem-value small" id="t-last-sent">never</div>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-label-row">
+        <span>Fermentation Progress</span>
+        <span id="t-og-label">OG: —</span>
+        <span id="t-fg-label">FG: —</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+      </div>
+      <div class="progress-pct" id="progress-pct">0%</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Log + Response -->
+  <div class="panel log-panel">
+    <div class="panel-title">Manual Override</div>
+
+    <div class="override-row">
+      <input type="number" id="override-gravity" placeholder="e.g. 1.040" step="0.001" min="1.000" max="1.200" />
+      <button class="btn btn-outline" onclick="overrideGravity()">Override</button>
+    </div>
+
+    <hr class="section-divider" />
+
+    <div class="panel-title">Last Response</div>
+
+    <div class="response-block idle" id="last-response">No readings sent yet.</div>
+
+    <div class="panel-title">Activity Log</div>
+
+    <div class="log-entries" id="log-entries">
+      <div class="log-entry"><span class="ts">—</span> Waiting for activity...</div>
+    </div>
+  </div>
+</main>
+
+<script>
+  let state = {};
+  let prevSent = 0;
+  let logEntries = [];
+
+  function timeAgo(ts) {
+    if (!ts) return 'never';
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 5) return 'just now';
+    if (s < 60) return `${s}s ago`;
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    return `${Math.floor(s / 3600)}h ago`;
+  }
+
+  function formatTime(ts) {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleTimeString('en-US', { hour12: false });
+  }
+
+  function addLog(msg) {
+    const ts = formatTime(Date.now());
+    logEntries.unshift({ ts, msg });
+    if (logEntries.length > 20) logEntries.pop();
+    renderLog();
+  }
+
+  function renderLog() {
+    const el = document.getElementById('log-entries');
+    el.innerHTML = logEntries.map(e =>
+      `<div class="log-entry"><span class="ts">${e.ts}</span> — ${e.msg}</div>`
+    ).join('');
+  }
+
+  async function fetchState() {
+    try {
+      const res = await fetch('/api/state');
+      state = await res.json();
+      updateUI();
+    } catch (e) {
+      console.error('State fetch failed', e);
+    }
+  }
+
+  function updateUI() {
+    const running = state.running;
+
+    // LED + header
+    const led = document.getElementById('led');
+    led.className = 'led' + (running ? ' running' : '');
+    document.getElementById('header-status').textContent = running ? 'RUNNING' : 'STOPPED';
+
+    // Toggle button
+    const btn = document.getElementById('toggle-btn');
+    if (running) {
+      btn.textContent = '■ STOP';
+      btn.className = 'btn btn-stop';
+    } else {
+      btn.textContent = '▶ START';
+      btn.className = 'btn btn-start';
+    }
+
+    // Telemetry
+    const g = state.currentGravity;
+    document.getElementById('t-gravity').textContent = g ? g.toFixed(4) : '—';
+
+    // Compute angle from last known values for display
+    if (g && state.og && state.fg) {
+      const progress = (g - state.og) / (state.fg - state.og);
+      const angle = Math.round((75 - progress * 50) * 10) / 10;
+      document.getElementById('t-angle').textContent = `${angle}°`;
+
+      // Progress bar
+      const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
+      document.getElementById('progress-fill').style.width = `${pct}%`;
+      document.getElementById('progress-pct').textContent = `${pct}%`;
+    }
+
+    document.getElementById('t-temp').textContent = state.temperature ? `${state.temperature.toFixed(1)} °F` : '—';
+    document.getElementById('t-battery').textContent = state.battery ? `${state.battery.toFixed(2)} V` : '—';
+    document.getElementById('t-sent').textContent = state.totalReadingsSent ?? 0;
+    document.getElementById('t-last-sent').textContent = timeAgo(state.lastSentAt);
+    document.getElementById('t-og-label').textContent = `OG: ${state.og ?? '—'}`;
+    document.getElementById('t-fg-label').textContent = `FG: ${state.fg ?? '—'}`;
+
+    // Last response
+    const resp = state.lastResponse;
+    const respEl = document.getElementById('last-response');
+    if (resp) {
+      const classname = resp.ok ? 'response-block ok' : 'response-block err';
+      respEl.className = classname;
+      const bodyPreview = resp.body ? resp.body.slice(0, 400) : '(empty body)';
+      respEl.textContent = `HTTP ${resp.status ?? 'ERR'} — ${formatTime(resp.timestamp)}\n\n${bodyPreview}`;
+    }
+
+    // Detect new reading
+    if (state.totalReadingsSent > prevSent) {
+      const diff = state.totalReadingsSent - prevSent;
+      for (let i = 0; i < diff; i++) {
+        const statusText = state.lastResponse
+          ? `status=${state.lastResponse.status ?? 'ERR'}`
+          : 'status=?';
+        addLog(`Reading sent: gravity=${g ? g.toFixed(4) : '?'} ${statusText}`);
+      }
+      prevSent = state.totalReadingsSent;
+    }
+  }
+
+  function populateConfig() {
+    if (!state.targetUrl) return;
+    document.getElementById('cfg-targetUrl').value = state.targetUrl;
+    document.getElementById('cfg-deviceName').value = state.deviceName;
+    document.getElementById('cfg-intervalSeconds').value = state.intervalSeconds;
+    document.getElementById('cfg-og').value = state.og;
+    document.getElementById('cfg-fg').value = state.fg;
+    document.getElementById('cfg-temperature').value = state.temperature;
+  }
+
+  async function applyConfig() {
+    const body = {
+      targetUrl: document.getElementById('cfg-targetUrl').value,
+      deviceName: document.getElementById('cfg-deviceName').value,
+      intervalSeconds: parseInt(document.getElementById('cfg-intervalSeconds').value, 10),
+      og: parseFloat(document.getElementById('cfg-og').value),
+      fg: parseFloat(document.getElementById('cfg-fg').value),
+      temperature: parseFloat(document.getElementById('cfg-temperature').value),
+    };
+    await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    addLog('Config applied');
+    fetchState();
+  }
+
+  async function toggleRunning() {
+    if (state.running) {
+      await fetch('/api/stop', { method: 'POST' });
+      addLog('Emulator stopped');
+    } else {
+      await fetch('/api/start', { method: 'POST' });
+      addLog('Emulator started');
+    }
+    fetchState();
+  }
+
+  async function sendNow() {
+    const res = await fetch('/api/send-now', { method: 'POST' });
+    const data = await res.json();
+    addLog(`Manual send: gravity=${data.payload?.gravity ?? '?'}`);
+    fetchState();
+  }
+
+  async function resetToOg() {
+    await fetch('/api/reset', { method: 'POST' });
+    addLog('Reset to OG — fermentation clock restarted');
+    fetchState();
+  }
+
+  async function overrideGravity() {
+    const gravity = parseFloat(document.getElementById('override-gravity').value);
+    if (isNaN(gravity)) return;
+    await fetch('/api/override-gravity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gravity }),
+    });
+    addLog(`Gravity overridden to ${gravity.toFixed(4)}`);
+    fetchState();
+  }
+
+  // Init
+  fetchState().then(() => {
+    prevSent = state.totalReadingsSent ?? 0;
+    populateConfig();
+  });
+
+  setInterval(fetchState, 1000);
+</script>
+</body>
+</html>
